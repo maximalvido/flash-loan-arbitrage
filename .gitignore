@@ -1,0 +1,20 @@
+# Compiler files
+cache/
+out/
+
+# Dependencies - submodule directories are tracked (as references), contents are in submodule repos
+# Note: lib/ itself is NOT ignored to allow git submodules to work
+# The actual library code lives in the submodule repositories, not in your repo
+
+/node_modules/
+
+# Ignores development broadcast logs
+!/broadcast
+/broadcast/*/31337/
+/broadcast/**/dry-run/
+
+# Docs
+docs/
+
+# Dotenv file
+.env

@@ -1,0 +1,2 @@
+# Ignore lib directory when creating archives (e.g., GitHub releases)
+lib/ export-ignore
