@@ -18,7 +18,7 @@ contract MockAavePool {
         for (uint256 i = 0; i < assets.length; i++) {
             MockERC20(assets[i]).mint(receiverAddress, amounts[i]);
         }
-        
+
         // Call executeOperation
         IFlashLoanReceiver(receiverAddress).executeOperation(
             assets,
@@ -27,7 +27,7 @@ contract MockAavePool {
             onBehalfOf,
             params
         );
-        
+
         // Collect repayment (0.09% fee)
         for (uint256 i = 0; i < assets.length; i++) {
             uint256 premium = amounts[i] * 9 / 10000; // 0.09% fee

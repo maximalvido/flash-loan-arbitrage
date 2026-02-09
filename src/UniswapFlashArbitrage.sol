@@ -19,25 +19,20 @@ contract UniswapFlashArbitrage is IUniswapV3FlashCallback, IUniswapV3SwapCallbac
     address private expectedFlashPool;
 
     struct SwapRoute {
-        address pool;         // Uniswap V3 pool address
-        bool zeroForOne;      // Swap direction (token0 -> token1)
+        address pool; // Uniswap V3 pool address
+        bool zeroForOne; // Swap direction (token0 -> token1)
         address tokenIn;
         address tokenOut;
     }
 
     struct FlashCallbackData {
-        address token;        // Token borrowed (token0 or token1)
-        uint256 amount;       // Amount borrowed
-        SwapRoute[] routes;   // Arbitrage routes to execute
-        address payer;        // Original caller (for profit distribution)
+        address token; // Token borrowed (token0 or token1)
+        uint256 amount; // Amount borrowed
+        SwapRoute[] routes; // Arbitrage routes to execute
+        address payer; // Original caller (for profit distribution)
     }
 
-    event ArbitrageExecuted(
-        address indexed token,
-        uint256 amountBorrowed,
-        uint256 profit,
-        uint256 gasUsed
-    );
+    event ArbitrageExecuted(address indexed token, uint256 amountBorrowed, uint256 profit, uint256 gasUsed);
 
     event ProfitWithdrawn(address indexed token, uint256 amount);
 
@@ -72,24 +67,19 @@ contract UniswapFlashArbitrage is IUniswapV3FlashCallback, IUniswapV3SwapCallbac
      * @param amountToBorrow Amount to borrow from the pool
      * @param routes Array of swap routes to execute
      */
-    function executeArbitrage(
-        address flashPool,
-        bool borrowToken0,
-        uint256 amountToBorrow,
-        SwapRoute[] calldata routes
-    ) external onlyOwner nonReentrant {
+    function executeArbitrage(address flashPool, bool borrowToken0, uint256 amountToBorrow, SwapRoute[] calldata routes)
+        external
+        onlyOwner
+        nonReentrant
+    {
         uint256 gasStart = gasleft();
 
         IUniswapV3Pool pool = IUniswapV3Pool(flashPool);
         address token = borrowToken0 ? pool.token0() : pool.token1();
 
         // Encode callback data
-        FlashCallbackData memory callbackData = FlashCallbackData({
-            token: token,
-            amount: amountToBorrow,
-            routes: routes,
-            payer: msg.sender
-        });
+        FlashCallbackData memory callbackData =
+            FlashCallbackData({token: token, amount: amountToBorrow, routes: routes, payer: msg.sender});
 
         expectedFlashPool = flashPool;
 
@@ -104,7 +94,7 @@ contract UniswapFlashArbitrage is IUniswapV3FlashCallback, IUniswapV3SwapCallbac
 
         uint256 gasUsed = gasStart - gasleft();
         uint256 balance = IERC20(token).balanceOf(address(this));
-        
+
         emit ArbitrageExecuted(token, amountToBorrow, balance, gasUsed);
     }
 
@@ -114,11 +104,7 @@ contract UniswapFlashArbitrage is IUniswapV3FlashCallback, IUniswapV3SwapCallbac
      * @param fee1 Flash fee for token1
      * @param data Encoded FlashCallbackData
      */
-    function uniswapV3FlashCallback(
-        uint256 fee0,
-        uint256 fee1,
-        bytes calldata data
-    ) external override {
+    function uniswapV3FlashCallback(uint256 fee0, uint256 fee1, bytes calldata data) external override {
         if (msg.sender != expectedFlashPool) revert InvalidFlashPool();
 
         FlashCallbackData memory decoded = abi.decode(data, (FlashCallbackData));
@@ -130,14 +116,9 @@ contract UniswapFlashArbitrage is IUniswapV3FlashCallback, IUniswapV3SwapCallbac
         // Execute all swap routes
         for (uint256 i = 0; i < decoded.routes.length; i++) {
             SwapRoute memory route = decoded.routes[i];
-            
-            currentBalance = _executeSwap(
-                route.pool,
-                route.zeroForOne,
-                route.tokenIn,
-                currentBalance
-            );
-            
+
+            currentBalance = _executeSwap(route.pool, route.zeroForOne, route.tokenIn, currentBalance);
+
             currentToken = route.tokenOut;
         }
 
@@ -168,24 +149,18 @@ contract UniswapFlashArbitrage is IUniswapV3FlashCallback, IUniswapV3SwapCallbac
      * @param amountIn Amount to swap
      * @return amountOut Amount received
      */
-    function _executeSwap(
-        address pool,
-        bool zeroForOne,
-        address tokenIn,
-        uint256 amountIn
-    ) private returns (uint256 amountOut) {
+    function _executeSwap(address pool, bool zeroForOne, address tokenIn, uint256 amountIn)
+        private
+        returns (uint256 amountOut)
+    {
         expectedPool = pool;
 
-        uint160 sqrtPriceLimitX96 = zeroForOne 
-            ? 4295128739  // MIN_SQRT_RATIO + 1
+        uint160 sqrtPriceLimitX96 = zeroForOne
+            ? 4295128739 // MIN_SQRT_RATIO + 1
             : 1461446703485210103287273052203988822378723970342; // MAX_SQRT_RATIO - 1
 
         (int256 amount0, int256 amount1) = IUniswapV3Pool(pool).swap(
-            address(this),
-            zeroForOne,
-            int256(amountIn),
-            sqrtPriceLimitX96,
-            abi.encode(tokenIn)
+            address(this), zeroForOne, int256(amountIn), sqrtPriceLimitX96, abi.encode(tokenIn)
         );
 
         amountOut = uint256(-(zeroForOne ? amount1 : amount0));
@@ -199,11 +174,10 @@ contract UniswapFlashArbitrage is IUniswapV3FlashCallback, IUniswapV3SwapCallbac
      * @param amount0Delta Amount of token0
      * @param amount1Delta Amount of token1
      */
-    function uniswapV3SwapCallback(
-        int256 amount0Delta,
-        int256 amount1Delta,
-        bytes calldata /* data */
-    ) external override {
+    function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata /* data */ )
+        external
+        override
+    {
         if (msg.sender != expectedPool) revert InvalidCallback();
         IUniswapV3Pool pool = IUniswapV3Pool(msg.sender);
 

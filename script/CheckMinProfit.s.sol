@@ -8,15 +8,15 @@ contract CheckMinProfit is Script {
     function run() public view {
         // Get contract address from environment or use default
         address contractAddress = vm.envOr("FLASH_LOAN_CONTRACT_ADDRESS", address(0));
-        
+
         if (contractAddress == address(0)) {
             console.log("Error: FLASH_LOAN_CONTRACT_ADDRESS not set in .env");
             console.log("Usage: Set FLASH_LOAN_CONTRACT_ADDRESS=<address> in .env");
             return;
         }
-        
+
         FlashLoanArbitrage arbitrageBot = FlashLoanArbitrage(contractAddress);
-        
+
         console.log("=== FlashLoanArbitrage Contract Info ===");
         console.log("Contract Address:", contractAddress);
         console.log("Owner:", arbitrageBot.owner());
