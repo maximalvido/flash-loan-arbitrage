@@ -1,5 +1,48 @@
 # Flash Loan Arbitrage Bot
-A Solidity smart contract that executes arbitrage opportunities using Aave V3 flash loans and Uniswap V3 pools.
+
+A collection of Solidity smart contracts that execute arbitrage opportunities using flash loans and Uniswap V3 pools.
+
+## Overview
+
+This repository contains multiple arbitrage contracts, each optimized for different use cases:
+
+1. **[FlashLoanArbitrage](./docs/FlashLoanArbitrage.md)** - Uses Aave V3 flash loans for multi-token, cross-pool arbitrage
+2. **[UniswapFlashArbitrage](./docs/UniswapFlashArbitrage.md)** - Uses Uniswap V3 native flash swaps for zero-fee, same-pool arbitrage
+
+## Quick Comparison
+
+| Feature | FlashLoanArbitrage | UniswapFlashArbitrage |
+|---------|-------------------|----------------------|
+| **Flash Loan Source** | Aave V3 Pool | Uniswap V3 Pool |
+| **Supported Tokens** | 100+ Aave-supported tokens | 2 tokens per pool (token0/token1) |
+| **Fees** | 0.05% - 0.09% of borrowed amount | Zero fees (only pay back what you borrow) |
+| **Best For** | Multi-token, cross-pool arbitrage | Same-pool pair arbitrage |
+| **Gas Cost** | ~50,000 - 70,000 gas | ~40,000 - 60,000 gas |
+| **Flexibility** | High (multiple tokens, multiple pools) | Medium (single pool pair) |
+
+## Contracts
+
+### [FlashLoanArbitrage](./docs/FlashLoanArbitrage.md)
+
+**Use when:** You need to arbitrage across multiple token pairs or want access to 100+ tokens.
+
+- ✅ Borrow any Aave-supported token
+- ✅ Execute complex multi-hop routes
+- ✅ Cross-pool arbitrage
+- ✅ Higher liquidity (Aave aggregates liquidity)
+
+[Read Full Documentation →](./docs/FlashLoanArbitrage.md)
+
+### [UniswapFlashArbitrage](./docs/UniswapFlashArbitrage.md)
+
+**Use when:** You're arbitraging within a single pool pair and want zero fees.
+
+- ✅ Zero flash loan fees
+- ✅ Direct pool access
+- ✅ Lower gas costs
+- ✅ Simple deployment (no Aave pool needed)
+
+[Read Full Documentation →](./docs/UniswapFlashArbitrage.md)
 
 ## Setup
 
@@ -50,13 +93,19 @@ A Solidity smart contract that executes arbitrage opportunities using Aave V3 fl
    
    Add the following environment variables to your `.env` file:
    
-   **Required for deployment:**
+   **Required for FlashLoanArbitrage deployment:**
    ```bash
    # Your private key
    PRIVATE_KEY=your_private_key_here
    
-   # Aave V3 Pool address for your target network, in this case we use Base one.
+   # Aave V3 Pool address for your target network (Base example)
    AAVE_POOL_ADDRESS=0xA238Dd80C259a72e81d7e4664a9801593F98d1c5
+   ```
+   
+   **Required for UniswapFlashArbitrage deployment:**
+   ```bash
+   # Your private key
+   PRIVATE_KEY=your_private_key_here
    ```
    
    **Optional variables:**
@@ -94,7 +143,12 @@ forge build
 ### Test
 
 ```bash
+# Test all contracts
 forge test
+
+# Test specific contract
+forge test --match-contract FlashLoanArbitrageTest
+forge test --match-contract UniswapFlashArbitrageTest
 ```
 
 ### Format
@@ -105,8 +159,15 @@ forge fmt
 
 ### Deploy
 
+**FlashLoanArbitrage:**
 ```bash
 forge script script/Deploy.s.sol:DeployFlashLoanArbitrage --rpc-url base --broadcast
+```
+
+**UniswapFlashArbitrage:**
+```bash
+# Create deployment script first, then:
+forge script script/DeployUniswapFlash.s.sol:DeployUniswapFlashArbitrage --rpc-url base --broadcast
 ```
 
 ## Project Structure
@@ -114,148 +175,43 @@ forge script script/Deploy.s.sol:DeployFlashLoanArbitrage --rpc-url base --broad
 ```
 flash-loan-arbitrage/
 ├── src/
-│   └── FlashLoanArbitrage.sol     # Main arbitrage contract
-├── script/                        # Deployment scripts
-├── test/                          # Test files
-├── lib/                           # Foundry dependencies (git submodules)
-├── node_modules/                  # npm dependencies
-├── foundry.toml                   # Foundry configuration
-├── remappings.txt                 # Solidity import remappings
-└── package.json                   # npm dependencies
+│   ├── FlashLoanArbitrage.sol          # Aave flash loan arbitrage contract
+│   └── UniswapFlashArbitrage.sol        # Uniswap flash swap arbitrage contract
+├── script/                              # Deployment scripts
+├── test/                                # Test files
+│   ├── FlashLoanArbitrage.t.sol
+│   ├── UniswapFlashArbitrage.t.sol
+│   └── mocks/                           # Mock contracts for testing
+├── docs/                                # Contract-specific documentation
+│   ├── FlashLoanArbitrage.md
+│   └── UniswapFlashArbitrage.md
+├── lib/                                 # Foundry dependencies (git submodules)
+├── node_modules/                        # npm dependencies
+├── foundry.toml                         # Foundry configuration
+├── remappings.txt                       # Solidity import remappings
+└── package.json                         # npm dependencies
 ```
 
-## How It Works
+## Common Patterns
 
-The contract executes arbitrage opportunities by borrowing funds via Aave flash loans, executing swaps across multiple Uniswap V3 pools, and repaying the loan with profit.
+### Gas Optimization
 
-```mermaid
-sequenceDiagram
-    participant Owner
-    participant Contract as FlashLoanArbitrage
-    participant Aave as Aave Pool
-    participant Pool1 as Uniswap Pool 1
-    participant Pool2 as Uniswap Pool 2
-    participant PoolN as Uniswap Pool N
+Both contracts use **direct pool swaps** instead of SwapRouter for optimal gas efficiency:
 
-    Owner->>Contract: executeArbitrage(token, amount, routes)
-    Contract->>Aave: flashLoan(amount)
-    Aave->>Contract: Transfer borrowed tokens
-    Aave->>Contract: executeOperation() callback
-    
-    loop For each route in routes
-        Contract->>Pool1: swap(amountIn)
-        Pool1->>Contract: uniswapV3SwapCallback()
-        Contract->>Pool1: Transfer tokenIn
-        Pool1->>Contract: Transfer tokenOut
-    end
-    
-    Contract->>Contract: Validate route ends with borrowed token
-    Contract->>Contract: Check profit >= debt + minProfit
-    Contract->>Aave: Approve repayment amount
-    Contract->>Aave: Return true (repayment handled by Aave)
-    Aave->>Aave: Transfer repayment from contract
-    Aave->>Contract: Flash loan complete
-    
-    Contract->>Owner: Emit ArbitrageExecuted event
-```
+- **Direct `pool.swap()`**: ~99,000 gas per swap
+- **SwapRouter**: ~107,000 gas per swap
+- **Savings**: ~9,500-11,500 gas per swap
 
-## Flash Loan Comparison: Aave vs Uniswap
+This is critical for arbitrage profitability.
 
-This contract uses **Aave V3 flash loans**, but both Aave and Uniswap offer flash loan capabilities. Here's a comparison:
+### Security Features
 
-| Feature | Aave V3 Flash Loans | Uniswap V3 Flash Swaps |
-|---------|---------------------|------------------------|
-| **Supported Tokens** | All Aave-supported assets (100+ tokens) | Only tokens in the specific pool (2 tokens per pool) |
-| **Borrowing Capacity** | Limited by Aave liquidity pool | Limited by pool liquidity |
-| **Fee Structure** | Fixed fee: 0.05% - 0.09% of borrowed amount | No fee (only pay back what you borrow) |
-| **Use Cases** | Multi-token arbitrage, complex DeFi operations | Same-pair arbitrage (token0 ↔ token1 in one pool) |
-| **Flexibility** | Can borrow multiple tokens simultaneously | Single pool, two tokens only |
-| **Gas Cost** | ~50,000 - 70,000 gas | ~40,000 - 60,000 gas |
-| **Best For** | Cross-pool arbitrage, multi-hop strategies | Same-pool price differences, simple arbitrage |
-
-### Why This Contract Uses Aave
-
-- **Multi-token support**: Can borrow any Aave-supported token for cross-pool arbitrage
-- **Flexible routing**: Execute swaps across multiple Uniswap V3-compatible pools with different token pairs
-- **Higher liquidity**: Aave pools typically have deeper liquidity than individual Uniswap pools
-- **Proven infrastructure**: Aave is battle-tested with billions in TVL
-
-**Note:** This contract uses `IUniswapV3Pool` interface, so it works with:
-- Uniswap V3 pools
-- DEXs that implement the Uniswap V3 pool interface (e.g., some Uniswap V3 forks)
-- Any protocol that uses the same `IUniswapV3Pool` interface
-
-It does **not** work with DEXs that use different interfaces (e.g., Uniswap V2, Curve, Balancer, etc.) unless they implement the Uniswap V3 interface.
-
-### When to Use Uniswap Flash Swaps
-
-Uniswap flash swaps are better when:
-- You only need to arbitrage within a single pool (e.g., WETH/USDC)
-- You want zero fees (only pay back what you borrow)
-- The arbitrage opportunity exists in the same pool pair
-
-## Swap Strategy Comparison: Direct Pool Swaps vs Multihop Router
-
-This contract uses **direct pool swaps** in a loop rather than Uniswap's SwapRouter multihop. Here's why:
-
-| Aspect | Direct Pool Swaps (Current) | SwapRouter Multihop |
-|--------|----------------------------|---------------------|
-| **Gas Cost** | Lower (~5,000-10,000 gas saved per hop) | Higher (router overhead) |
-| **Control** | Full control over each swap | Router handles routing |
-| **Best For** | Arbitrage bots, gas-sensitive operations | User-facing apps, simple swaps |
-
-### Current Implementation
-
-```solidity
-// Direct pool swaps - optimal for arbitrage
-for (uint256 i = 0; i < routes.length; i++) {
-    currentBalance = _executeSwap(
-        route.pool,
-        route.zeroForOne,
-        route.tokenIn,
-        currentBalance
-    );
-}
-```
-
-### Alternative: SwapRouter Multihop
-
-```solidity
-// Would use SwapRouter (not implemented)
-ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
-    path: abi.encodePacked(token0, fee0, token1, fee1, token2),
-    recipient: address(this),
-    deadline: block.timestamp,
-    amountIn: amountIn,
-    amountOutMinimum: 0
-});
-swapRouter.exactInput(params);
-```
-
-**When to use SwapRouter:**
-- Building user-facing applications
-- Simpler code is preferred over gas optimization
-- Path encoding is handled automatically
-
-### Gas Cost Breakdown
-
-**SwapRouter.swapExactInputSingle()** adds significant gas overhead:
-
-| Operation | Gas Cost | Why It's Needed |
-|-----------|----------|-----------------|
-| **Token Transfer** | ~2,100 gas | Router transfers tokens from caller to router |
-| **Approval Check** | ~2,400 gas | Router checks/updates token approvals |
-| **Router Logic** | ~3,000-5,000 gas | Path validation, fee calculation, parameter encoding |
-| **Additional Storage** | ~2,000 gas | Router maintains state for routing |
-| **Total Overhead** | **~9,500-11,500 gas** | Per swap operation |
-
-**Direct pool.swap()** eliminates this overhead:
-- No token transfers (tokens already in contract from flash loan)
-- No approval checks (callback handles payment directly)
-- No router logic (direct pool interaction)
-- No additional storage (minimal state tracking)
-
-**Gas Savings is critical for arbitrage profitability.**
+Both contracts implement:
+- ✅ Reentrancy protection (`nonReentrant` modifier)
+- ✅ Owner-only access control
+- ✅ Route validation (ensures routes end with borrowed token)
+- ✅ Minimum profit checks
+- ✅ Callback validation
 
 ## Dependencies
 
@@ -265,10 +221,20 @@ swapRouter.exactInput(params);
 - `openzeppelin-contracts-upgradeable` - OpenZeppelin contracts
 
 ### npm Dependencies (via `npm install`)
-- `@aave/core-v3` - Aave V3 interfaces
+- `@aave/core-v3` - Aave V3 interfaces (required for FlashLoanArbitrage)
 
 ## Documentation
 
+- [FlashLoanArbitrage Documentation](./docs/FlashLoanArbitrage.md) - Detailed guide for Aave flash loan arbitrage
+- [UniswapFlashArbitrage Documentation](./docs/UniswapFlashArbitrage.md) - Detailed guide for Uniswap flash swap arbitrage
 - [Foundry Book](https://book.getfoundry.sh/)
 - [Aave V3 Documentation](https://docs.aave.com/)
 - [Uniswap V3 Documentation](https://docs.uniswap.org/contracts/v3/overview)
+
+## Contributing
+
+This is a portfolio project demonstrating flash loan arbitrage implementations. Contributions and feedback are welcome!
+
+## License
+
+MIT
