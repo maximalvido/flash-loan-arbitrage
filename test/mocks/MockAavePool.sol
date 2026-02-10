@@ -18,21 +18,23 @@ contract MockAavePool {
         for (uint256 i = 0; i < assets.length; i++) {
             MockERC20(assets[i]).mint(receiverAddress, amounts[i]);
         }
-        
+
         // Call executeOperation
-        IFlashLoanReceiver(receiverAddress).executeOperation(
-            assets,
-            amounts,
-            new uint256[](assets.length), // premiums
-            onBehalfOf,
-            params
-        );
-        
+        IFlashLoanReceiver(receiverAddress)
+            .executeOperation(
+                assets,
+                amounts,
+                new uint256[](assets.length), // premiums
+                onBehalfOf,
+                params
+            );
+
         // Collect repayment (0.09% fee)
         for (uint256 i = 0; i < assets.length; i++) {
             uint256 premium = amounts[i] * 9 / 10000; // 0.09% fee
             uint256 totalDebt = amounts[i] + premium;
-            MockERC20(assets[i]).transferFrom(receiverAddress, address(this), totalDebt);
+            bool success = MockERC20(assets[i]).transferFrom(receiverAddress, address(this), totalDebt);
+            require(success, "Transfer failed");
         }
     }
 }

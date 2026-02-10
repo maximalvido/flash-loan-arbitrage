@@ -25,22 +25,19 @@ contract DeployFlashLoanArbitrage is Script {
         }
 
         uint256 minProfit = vm.envOr("MIN_PROFIT_WEI", DEFAULT_MIN_PROFIT);
-        
+
         vm.startBroadcast(deployerPrivateKey);
 
         console.log("=== Deploying FlashLoanArbitrage ===");
         console.log("Aave Pool:", aavePool);
         console.log("Min Profit (wei):", minProfit);
         console.log("Min Profit (ETH):", minProfit / 1e18);
-        
-        FlashLoanArbitrage arbitrageBot = new FlashLoanArbitrage(
-            aavePool,
-            minProfit
-        );
+
+        FlashLoanArbitrage arbitrageBot = new FlashLoanArbitrage(aavePool, minProfit);
 
         console.log("\n=== Deployment Successful ===");
         console.log("Contract Address:", address(arbitrageBot));
-        console.log("Owner:", arbitrageBot.owner());
+        console.log("Owner:", arbitrageBot.OWNER());
         console.log("Aave Pool:", address(arbitrageBot.AAVE_POOL()));
         console.log("Min Profit:", arbitrageBot.minProfitWei());
 
