@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-import "../src/UniswapFlashArbitrage.sol";
-import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {IUniswapV3Pool} from "v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+import {Test} from "forge-std/Test.sol";
+import {UniswapFlashArbitrage} from "../src/UniswapFlashArbitrage.sol";
+
 import {MockERC20} from "./mocks/MockERC20.sol";
 import {MockUniswapFlashPool} from "./mocks/MockUniswapFlashPool.sol";
 import {MockUniswapPool} from "./mocks/MockUniswapPool.sol";
@@ -41,8 +40,8 @@ contract UniswapFlashArbitrageTest is Test {
         arbitrageBot = new UniswapFlashArbitrage(MIN_PROFIT);
     }
 
-    function test_Deployment() public {
-        assertEq(arbitrageBot.owner(), owner);
+    function test_Deployment() public view {
+        assertEq(arbitrageBot.OWNER(), owner);
         assertEq(arbitrageBot.minProfitWei(), MIN_PROFIT);
     }
 
@@ -78,7 +77,7 @@ contract UniswapFlashArbitrageTest is Test {
         assertEq(arbitrageBot.minProfitWei(), newMinProfit);
     }
 
-    function test_ReentrancyProtection_ExecuteArbitrage() public {
+    function test_ReentrancyProtection_ExecuteArbitrage() public pure {
         // This test verifies that the nonReentrant modifier is in place
         // Actual reentrancy testing would require a malicious pool that tries to
         // call executeArbitrage during the flash callback, which is complex to mock

@@ -1,15 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "forge-std/Test.sol";
-import "../src/FlashLoanArbitrage.sol";
+import {Test} from "forge-std/Test.sol";
+import {FlashLoanArbitrage} from "../src/FlashLoanArbitrage.sol";
 import {IPool} from "@aave/core-v3/contracts/interfaces/IPool.sol";
-import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {IUniswapV3Pool} from "v3-core/contracts/interfaces/IUniswapV3Pool.sol";
+
 import {MockERC20} from "./mocks/MockERC20.sol";
 import {MockAavePool} from "./mocks/MockAavePool.sol";
 import {MockUniswapPool} from "./mocks/MockUniswapPool.sol";
-import {IFlashLoanReceiver} from "@aave/core-v3/contracts/flashloan/interfaces/IFlashLoanReceiver.sol";
+
 import {ReentrantMockAavePool} from "./mocks/ReentrantMockAavePool.sol";
 
 contract FlashLoanArbitrageTest is Test {
@@ -41,9 +40,9 @@ contract FlashLoanArbitrageTest is Test {
         arbitrageBot = new FlashLoanArbitrage(mockAavePool, MIN_PROFIT);
     }
 
-    function test_Deployment() public {
+    function test_Deployment() public view {
         assertEq(address(arbitrageBot.AAVE_POOL()), mockAavePool);
-        assertEq(arbitrageBot.owner(), owner);
+        assertEq(arbitrageBot.OWNER(), owner);
         assertEq(arbitrageBot.minProfitWei(), MIN_PROFIT);
     }
 
@@ -133,7 +132,7 @@ contract FlashLoanArbitrageTest is Test {
         arbitrageBot.recoverToken(mockToken);
     }
 
-    function test_POOL() public {
+    function test_POOL() public view {
         IPool pool = arbitrageBot.POOL();
         assertEq(address(pool), address(mockAavePool));
     }

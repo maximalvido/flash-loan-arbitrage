@@ -7,6 +7,7 @@ import {IFlashLoanReceiver} from "@aave/core-v3/contracts/flashloan/interfaces/I
 import {IUniswapV3Pool} from "v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import {IUniswapV3SwapCallback} from "v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title FlashLoanArbitrage
@@ -14,8 +15,10 @@ import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
  * @dev Uses direct Uniswap V3 pool calls for optimal gas efficiency
  */
 contract FlashLoanArbitrage is IFlashLoanReceiver, IUniswapV3SwapCallback {
+    using SafeERC20 for IERC20;
+
     IPool public immutable AAVE_POOL;
-    address public immutable owner;
+    address public immutable OWNER;
     uint256 public minProfitWei;
     uint256 private locked = 1;
     address private expectedPool;
@@ -39,21 +42,33 @@ contract FlashLoanArbitrage is IFlashLoanReceiver, IUniswapV3SwapCallback {
     error InvalidRoute();
 
     modifier onlyOwner() {
-        if (msg.sender != owner) revert Unauthorized();
+        _checkOwner();
         _;
     }
 
     modifier nonReentrant() {
-        if (locked != 1) revert ReentrancyGuard();
-        locked = 2;
+        _nonReentrantBefore();
         _;
-        locked = 1;
+        _nonReentrantAfter();
     }
 
     constructor(address _aavePool, uint256 _minProfitWei) {
         AAVE_POOL = IPool(_aavePool);
-        owner = msg.sender;
+        OWNER = msg.sender;
         minProfitWei = _minProfitWei;
+    }
+
+    function _checkOwner() internal view {
+        if (msg.sender != OWNER) revert Unauthorized();
+    }
+
+    function _nonReentrantBefore() internal {
+        if (locked != 1) revert ReentrancyGuard();
+        locked = 2;
+    }
+
+    function _nonReentrantAfter() internal {
+        locked = 1;
     }
 
     /**
@@ -130,7 +145,7 @@ contract FlashLoanArbitrage is IFlashLoanReceiver, IUniswapV3SwapCallback {
             revert InsufficientProfit(totalDebt + minProfitWei, finalBalance);
         }
 
-        IERC20(assets[0]).approve(address(AAVE_POOL), totalDebt);
+        IERC20(assets[0]).forceApprove(address(AAVE_POOL), totalDebt);
 
         return true;
     }
@@ -153,8 +168,9 @@ contract FlashLoanArbitrage is IFlashLoanReceiver, IUniswapV3SwapCallback {
             ? 4295128740  // MIN_SQRT_RATIO + 1
             : 1461446703485210103287273052203988822378723970341; // MAX_SQRT_RATIO - 1
 
-        (int256 amount0, int256 amount1) = IUniswapV3Pool(pool)
-            .swap(address(this), zeroForOne, int256(amountIn), sqrtPriceLimitX96, abi.encode(tokenIn));
+        (int256 amount0, int256 amount1) = IUniswapV3Pool(pool).
+            // forge-lint: disable-next-line(unsafe-typecast)
+            swap(address(this), zeroForOne, int256(amountIn), sqrtPriceLimitX96, abi.encode(tokenIn));
 
         amountOut = uint256(-(zeroForOne ? amount1 : amount0));
         expectedPool = address(0);
@@ -166,17 +182,26 @@ contract FlashLoanArbitrage is IFlashLoanReceiver, IUniswapV3SwapCallback {
      * @notice Uniswap V3 swap callback
      * @param amount0Delta Amount of token0
      * @param amount1Delta Amount of token1
-     * @param data Encoded token address
+     *
      */
-    function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata data) external override {
+    function uniswapV3SwapCallback(
+        int256 amount0Delta,
+        int256 amount1Delta,
+        bytes calldata /* data */
+    )
+        external
+        override
+    {
         if (msg.sender != expectedPool) revert InvalidCallback();
         IUniswapV3Pool pool = IUniswapV3Pool(msg.sender);
 
         // Pay the token corresponding to the positive delta
         if (amount0Delta > 0) {
-            IERC20(pool.token0()).transfer(msg.sender, uint256(amount0Delta));
+            // forge-lint: disable-next-line(unsafe-typecast)
+            IERC20(pool.token0()).safeTransfer(msg.sender, uint256(amount0Delta));
         } else if (amount1Delta > 0) {
-            IERC20(pool.token1()).transfer(msg.sender, uint256(amount1Delta));
+            // forge-lint: disable-next-line(unsafe-typecast)
+            IERC20(pool.token1()).safeTransfer(msg.sender, uint256(amount1Delta));
         }
     }
 
@@ -187,7 +212,7 @@ contract FlashLoanArbitrage is IFlashLoanReceiver, IUniswapV3SwapCallback {
     function withdrawProfits(address token) external onlyOwner {
         uint256 balance = IERC20(token).balanceOf(address(this));
         if (balance > 0) {
-            IERC20(token).transfer(owner, balance);
+            IERC20(token).safeTransfer(OWNER, balance);
             emit ProfitWithdrawn(token, balance);
         }
     }
@@ -207,7 +232,7 @@ contract FlashLoanArbitrage is IFlashLoanReceiver, IUniswapV3SwapCallback {
     function recoverToken(address token) external onlyOwner {
         uint256 balance = IERC20(token).balanceOf(address(this));
         if (balance > 0) {
-            IERC20(token).transfer(owner, balance);
+            IERC20(token).safeTransfer(OWNER, balance);
         }
     }
 

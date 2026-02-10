@@ -37,7 +37,7 @@ contract DeployFlashLoanArbitrage is Script {
 
         console.log("\n=== Deployment Successful ===");
         console.log("Contract Address:", address(arbitrageBot));
-        console.log("Owner:", arbitrageBot.owner());
+        console.log("Owner:", arbitrageBot.OWNER());
         console.log("Aave Pool:", address(arbitrageBot.AAVE_POOL()));
         console.log("Min Profit:", arbitrageBot.minProfitWei());
 

@@ -33,7 +33,8 @@ contract MockAavePool {
         for (uint256 i = 0; i < assets.length; i++) {
             uint256 premium = amounts[i] * 9 / 10000; // 0.09% fee
             uint256 totalDebt = amounts[i] + premium;
-            MockERC20(assets[i]).transferFrom(receiverAddress, address(this), totalDebt);
+            bool success = MockERC20(assets[i]).transferFrom(receiverAddress, address(this), totalDebt);
+            require(success, "Transfer failed");
         }
     }
 }

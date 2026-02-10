@@ -19,7 +19,7 @@ contract CheckMinProfit is Script {
 
         console.log("=== FlashLoanArbitrage Contract Info ===");
         console.log("Contract Address:", contractAddress);
-        console.log("Owner:", arbitrageBot.owner());
+        console.log("Owner:", arbitrageBot.OWNER());
         console.log("Aave Pool:", address(arbitrageBot.AAVE_POOL()));
         console.log("Current minProfit (wei):", arbitrageBot.minProfitWei());
         console.log("Current minProfit (ETH):", arbitrageBot.minProfitWei() / 1e18);

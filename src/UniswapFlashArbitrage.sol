@@ -5,6 +5,7 @@ import {IUniswapV3Pool} from "v3-core/contracts/interfaces/IUniswapV3Pool.sol";
 import {IUniswapV3FlashCallback} from "v3-core/contracts/interfaces/callback/IUniswapV3FlashCallback.sol";
 import {IUniswapV3SwapCallback} from "v3-core/contracts/interfaces/callback/IUniswapV3SwapCallback.sol";
 import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title UniswapFlashArbitrage
@@ -12,7 +13,9 @@ import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
  * @dev Uses direct Uniswap V3 pool calls for optimal gas efficiency
  */
 contract UniswapFlashArbitrage is IUniswapV3FlashCallback, IUniswapV3SwapCallback {
-    address public immutable owner;
+    using SafeERC20 for IERC20;
+
+    address public immutable OWNER;
     uint256 public minProfitWei;
     uint256 private locked = 1;
     address private expectedPool;
@@ -44,20 +47,32 @@ contract UniswapFlashArbitrage is IUniswapV3FlashCallback, IUniswapV3SwapCallbac
     error InvalidFlashPool();
 
     modifier onlyOwner() {
-        if (msg.sender != owner) revert Unauthorized();
+        _checkOwner();
         _;
     }
 
     modifier nonReentrant() {
-        if (locked != 1) revert ReentrancyGuard();
-        locked = 2;
+        _nonReentrantBefore();
         _;
-        locked = 1;
+        _nonReentrantAfter();
     }
 
     constructor(uint256 _minProfitWei) {
-        owner = msg.sender;
+        OWNER = msg.sender;
         minProfitWei = _minProfitWei;
+    }
+
+    function _checkOwner() internal view {
+        if (msg.sender != OWNER) revert Unauthorized();
+    }
+
+    function _nonReentrantBefore() internal {
+        if (locked != 1) revert ReentrancyGuard();
+        locked = 2;
+    }
+
+    function _nonReentrantAfter() internal {
+        locked = 1;
     }
 
     /**
@@ -138,7 +153,7 @@ contract UniswapFlashArbitrage is IUniswapV3FlashCallback, IUniswapV3SwapCallbac
         }
 
         // Transfer tokens back to pool (pool checks balance after callback)
-        IERC20(decoded.token).transfer(msg.sender, totalDebt);
+        IERC20(decoded.token).safeTransfer(msg.sender, totalDebt);
     }
 
     /**
@@ -159,8 +174,9 @@ contract UniswapFlashArbitrage is IUniswapV3FlashCallback, IUniswapV3SwapCallbac
             ? 4295128739  // MIN_SQRT_RATIO + 1
             : 1461446703485210103287273052203988822378723970342; // MAX_SQRT_RATIO - 1
 
-        (int256 amount0, int256 amount1) = IUniswapV3Pool(pool)
-            .swap(address(this), zeroForOne, int256(amountIn), sqrtPriceLimitX96, abi.encode(tokenIn));
+        (int256 amount0, int256 amount1) = IUniswapV3Pool(pool).
+            // forge-lint: disable-next-line(unsafe-typecast)
+            swap(address(this), zeroForOne, int256(amountIn), sqrtPriceLimitX96, abi.encode(tokenIn));
 
         amountOut = uint256(-(zeroForOne ? amount1 : amount0));
         expectedPool = address(0);
@@ -186,9 +202,11 @@ contract UniswapFlashArbitrage is IUniswapV3FlashCallback, IUniswapV3SwapCallbac
 
         // Pay the token corresponding to the positive delta
         if (amount0Delta > 0) {
-            IERC20(pool.token0()).transfer(msg.sender, uint256(amount0Delta));
+            // forge-lint: disable-next-line(unsafe-typecast)
+            IERC20(pool.token0()).safeTransfer(msg.sender, uint256(amount0Delta));
         } else if (amount1Delta > 0) {
-            IERC20(pool.token1()).transfer(msg.sender, uint256(amount1Delta));
+            // forge-lint: disable-next-line(unsafe-typecast)
+            IERC20(pool.token1()).safeTransfer(msg.sender, uint256(amount1Delta));
         }
     }
 
@@ -199,7 +217,7 @@ contract UniswapFlashArbitrage is IUniswapV3FlashCallback, IUniswapV3SwapCallbac
     function withdrawProfits(address token) external onlyOwner {
         uint256 balance = IERC20(token).balanceOf(address(this));
         if (balance > 0) {
-            IERC20(token).transfer(owner, balance);
+            IERC20(token).safeTransfer(OWNER, balance);
             emit ProfitWithdrawn(token, balance);
         }
     }
@@ -219,7 +237,7 @@ contract UniswapFlashArbitrage is IUniswapV3FlashCallback, IUniswapV3SwapCallbac
     function recoverToken(address token) external onlyOwner {
         uint256 balance = IERC20(token).balanceOf(address(this));
         if (balance > 0) {
-            IERC20(token).transfer(owner, balance);
+            IERC20(token).safeTransfer(OWNER, balance);
         }
     }
 }

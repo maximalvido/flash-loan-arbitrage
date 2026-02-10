@@ -28,6 +28,8 @@ contract ReentrantMockAavePool {
         FlashLoanArbitrage.SwapRoute[] memory emptyRoutes = new FlashLoanArbitrage.SwapRoute[](0);
         target.executeArbitrage(assets[0], amounts[0], emptyRoutes);
 
-        MockERC20(assets[0]).transferFrom(receiverAddress, address(this), amounts[0] + (amounts[0] * 9 / 10000));
+        bool success =
+            MockERC20(assets[0]).transferFrom(receiverAddress, address(this), amounts[0] + (amounts[0] * 9 / 10000));
+        require(success, "Transfer failed");
     }
 }

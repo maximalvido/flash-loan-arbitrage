@@ -52,14 +52,19 @@ contract MockUniswapFlashPool is IUniswapV3Pool {
         returns (int256 amount0, int256 amount1)
     {
         // Simple mock: simulate swap with 0.3% fee (Uniswap V3 standard)
+        // forge-lint: disable-next-line(unsafe-typecast)
         uint256 amountIn = uint256(amountSpecified);
         uint256 amountOut = amountIn * 997 / 1000; // 0.3% fee
 
         if (zeroForOne) {
+            // forge-lint: disable-next-line(unsafe-typecast)
             amount0 = int256(amountIn); // Positive (we pay token0)
+            // forge-lint: disable-next-line(unsafe-typecast)
             amount1 = -int256(amountOut); // Negative (we receive token1)
         } else {
+            // forge-lint: disable-next-line(unsafe-typecast)
             amount1 = int256(amountIn); // Positive (we pay token1)
+            // forge-lint: disable-next-line(unsafe-typecast)
             amount0 = -int256(amountOut); // Negative (we receive token0)
         }
 
