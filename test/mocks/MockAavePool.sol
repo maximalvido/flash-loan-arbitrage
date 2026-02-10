@@ -20,13 +20,14 @@ contract MockAavePool {
         }
 
         // Call executeOperation
-        IFlashLoanReceiver(receiverAddress).executeOperation(
-            assets,
-            amounts,
-            new uint256[](assets.length), // premiums
-            onBehalfOf,
-            params
-        );
+        IFlashLoanReceiver(receiverAddress)
+            .executeOperation(
+                assets,
+                amounts,
+                new uint256[](assets.length), // premiums
+                onBehalfOf,
+                params
+            );
 
         // Collect repayment (0.09% fee)
         for (uint256 i = 0; i < assets.length; i++) {

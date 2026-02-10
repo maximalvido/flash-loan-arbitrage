@@ -150,12 +150,11 @@ contract FlashLoanArbitrage is IFlashLoanReceiver, IUniswapV3SwapCallback {
         expectedPool = pool;
 
         uint160 sqrtPriceLimitX96 = zeroForOne
-            ? 4295128740 // MIN_SQRT_RATIO + 1
+            ? 4295128740  // MIN_SQRT_RATIO + 1
             : 1461446703485210103287273052203988822378723970341; // MAX_SQRT_RATIO - 1
 
-        (int256 amount0, int256 amount1) = IUniswapV3Pool(pool).swap(
-            address(this), zeroForOne, int256(amountIn), sqrtPriceLimitX96, abi.encode(tokenIn)
-        );
+        (int256 amount0, int256 amount1) = IUniswapV3Pool(pool)
+            .swap(address(this), zeroForOne, int256(amountIn), sqrtPriceLimitX96, abi.encode(tokenIn));
 
         amountOut = uint256(-(zeroForOne ? amount1 : amount0));
         expectedPool = address(0);

@@ -146,10 +146,7 @@ contract UniswapFlashArbitrageTest is Test {
     function test_FlashCallback_InvalidFlashPool() public {
         bytes memory data = abi.encode(
             UniswapFlashArbitrage.FlashCallbackData({
-                token: token0,
-                amount: 1000,
-                routes: new UniswapFlashArbitrage.SwapRoute[](0),
-                payer: owner
+                token: token0, amount: 1000, routes: new UniswapFlashArbitrage.SwapRoute[](0), payer: owner
             })
         );
 

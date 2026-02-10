@@ -156,12 +156,11 @@ contract UniswapFlashArbitrage is IUniswapV3FlashCallback, IUniswapV3SwapCallbac
         expectedPool = pool;
 
         uint160 sqrtPriceLimitX96 = zeroForOne
-            ? 4295128739 // MIN_SQRT_RATIO + 1
+            ? 4295128739  // MIN_SQRT_RATIO + 1
             : 1461446703485210103287273052203988822378723970342; // MAX_SQRT_RATIO - 1
 
-        (int256 amount0, int256 amount1) = IUniswapV3Pool(pool).swap(
-            address(this), zeroForOne, int256(amountIn), sqrtPriceLimitX96, abi.encode(tokenIn)
-        );
+        (int256 amount0, int256 amount1) = IUniswapV3Pool(pool)
+            .swap(address(this), zeroForOne, int256(amountIn), sqrtPriceLimitX96, abi.encode(tokenIn));
 
         amountOut = uint256(-(zeroForOne ? amount1 : amount0));
         expectedPool = address(0);
@@ -174,7 +173,11 @@ contract UniswapFlashArbitrage is IUniswapV3FlashCallback, IUniswapV3SwapCallbac
      * @param amount0Delta Amount of token0
      * @param amount1Delta Amount of token1
      */
-    function uniswapV3SwapCallback(int256 amount0Delta, int256 amount1Delta, bytes calldata /* data */ )
+    function uniswapV3SwapCallback(
+        int256 amount0Delta,
+        int256 amount1Delta,
+        bytes calldata /* data */
+    )
         external
         override
     {
